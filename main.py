@@ -13,6 +13,6 @@ async def root():
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
 
-user = User.User("Michel")
+new_user = User.User("Michel", 47, "18 janvier 1975", 10)
 
-print(User.get_person_name(user))
+User.get_user_infos(new_user)

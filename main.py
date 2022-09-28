@@ -1,3 +1,5 @@
+import json
+
 from fastapi import FastAPI
 from enum import Enum
 
@@ -8,7 +10,15 @@ class ModelName(str, Enum):
     lenet = "lenet"
 
 
+fake_images_db = [{"image_name": "/images/sun-ken-rock.png"}, {"item_name": "ranjdqlf"}]
+
+
 app = FastAPI()
+
+
+@app.get("/images/")
+async def get_image(skip: int = 3, limit: int = 10):
+    return fake_images_db[skip: skip + limit]
 
 
 @app.get("/models/{model_name}")

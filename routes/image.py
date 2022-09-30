@@ -1,4 +1,8 @@
 import base64
+from enum import Enum
+
+import cv2
+import numpy as np
 
 from fastapi import APIRouter, File, UploadFile
 from config.db import conn
@@ -171,3 +175,85 @@ async def delete_image(id: str, token: str):
     # It's deleting the image from the database.
     conn.execute(images.delete().where(images.c.i_id == id))
     return {"status": 200, "message": "Image deleted successfully"}
+
+
+class Filters(str, Enum):
+    """
+    It's the filters that the user can use
+    """
+    grayscale = "grayscale"
+    invert = "invert"
+    blur = "blur"
+    contour = "contour"
+    emboss = "emboss"
+
+
+@image.put(prefix + "/{id}")
+async def add_filter_image(id: str, token: str, filter: Filters):
+    """
+    It's getting the user from the database, checking if the user is valid, checking if the image exists, checking if the
+    user has access to the image, checking if the filter is valid, checking if the filter is already applied, applying the
+    filter and then updating the image in the database.
+
+    :param id: The id of the image
+    :type id: str
+    :param token: The user's token
+    :type token: str
+    :param filters: The filter that the user wants to apply
+    :type filters: Filter
+    :return: It's returning the status of the request and a message.
+    """
+
+    # It's getting the user from the database.
+    user = conn.execute(users.select().where(users.c.u_api_key == token)).first()
+
+    ##############
+    # Conditions #
+    ##############
+    # It's checking if the user is valid.
+    if not user:
+        return {"status": 400, "message": "Invalid token"}
+
+    # It's checking if the image exists.
+    if not conn.execute(images.select().where(images.c.i_id == id)).first():
+        return {"status": 400, "message": "Image not found"}
+
+    # It's checking if the user has access to the image.
+    if not conn.execute(
+            images.select().where(images.c.i_id == id).where(images.c.i_fk_user_id == user["u_id"])).first():
+        return {"status": 400, "message": "You don't have access to this image"}
+
+    # It's checking if the filter is valid.
+    if filter not in Filters:
+        return {"status": 400, "message": "Invalid filter", "allFilters": [f.value for f in Filters]}
+    #####################
+    # End of conditions #
+    #####################
+
+    # It's applying the filter with CV2.
+    image = conn.execute(images.select().where(images.c.i_id == id)).first()
+    image = base64.b64decode(image["i_image"])
+    nparr = np.frombuffer(image, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if filter == Filters.grayscale:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    elif filter == Filters.invert:
+        img = cv2.bitwise_not(img)
+    elif filter == Filters.blur:
+        img = cv2.blur(img, (5, 5))
+    elif filter == Filters.contour:
+        img = cv2.Canny(img, 100, 200)
+    elif filter == Filters.emboss:
+        kernel = np.array([[0, -1, -1],
+                           [1, 0, -1],
+                           [1, 1, 0]])
+        img = cv2.filter2D(img, -1, kernel)
+
+    # It's converting the image to base64.
+    _, buffer = cv2.imencode('.jpg', img)
+    img = base64.b64encode(buffer)
+
+    # It's updating the image in the database.
+    conn.execute(images.update().where(images.c.i_id == id).values(i_image=img))
+    return {"status": 200, "message": "Filter applied successfully", "data": conn.execute(images.select().where(images.c.i_id == id)).first()}

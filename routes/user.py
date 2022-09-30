@@ -55,7 +55,7 @@ async def login_user(username: str, password: str):
     :type password: str
     :return: A dictionary with the status, message and token.
     """
-    
+
     ##############
     # Conditions #
     ##############

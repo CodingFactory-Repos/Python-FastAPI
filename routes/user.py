@@ -5,9 +5,28 @@ from fastapi import APIRouter, File, UploadFile
 
 from config.db import conn
 from models.index import users
+from models.index import images
 
 user = APIRouter()
 prefix = "/user"
+
+
+@user.get(prefix)
+async def get_all_users(token: str):
+    """
+    It's getting all the users from the database and returning them.
+
+    :return: It's returning a list of dictionaries, each dictionary contains the username, email and role of the user.
+    """
+
+    # It's getting all the users (and all the users images id) from the database and returning them if the user is an admin.
+    if conn.execute(users.select().where(users.c.u_api_key == token)).first()["u_role"] == "admin":
+        users_list = []
+        for user in conn.execute(users.select()):
+            users_list.append({"username": user["u_username"], "email": user["u_email"], "role": user["u_role"], "images": [image["i_id"] for image in conn.execute(images.select().where(images.c.i_fk_user_id == user["u_id"]))]})
+        return {"status": 200, "message": "Users found", "data": users_list}
+    else:
+        return {"status": 400, "message": "You are not an admin"}
 
 
 @user.post(prefix + "/register")
@@ -41,7 +60,8 @@ async def register_user(username: str, password: str, email: str):
     api_key = base64.b64encode(os.urandom(24)).decode("utf-8")
     # Inserting the values into the database.
     conn.execute(users.insert().values(u_username=username, u_password=password, u_email=email, u_api_key=api_key))
-    return {"status": 200, "message": "User created successfully", "data": {"username": username, "email": email, "api_key": api_key}}
+    return {"status": 200, "message": "User created successfully",
+            "data": {"username": username, "email": email, "api_key": api_key}}
 
 
 @user.post(prefix + "/login")

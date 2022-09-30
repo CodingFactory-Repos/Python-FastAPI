@@ -77,7 +77,7 @@ async def read_image(id: str, token: str):
 
     # It's checking if the user has access to the image.
     if not conn.execute(
-            images.select().where(images.c.i_id == id).where(images.c.i_fk_user_id == user["u_id"])).first():
+            images.select().where(images.c.i_id == id).where(images.c.i_fk_user_id == user["u_id"])).first() and user["u_role"] != "admin":
         return {"status": 400, "message": "You don't have access to this image"}
     #####################
     # End of conditions #
@@ -122,7 +122,7 @@ async def create_image(id: str, file: UploadFile, token: str):
         return {"status": 400, "message": "Invalid image"}
 
     # Check if the user have already uploaded 5 images.
-    if len(conn.execute(images.select().where(images.c.i_fk_user_id == user["u_id"])).fetchall()) >= 5:
+    if len(conn.execute(images.select().where(images.c.i_fk_user_id == user["u_id"])).fetchall()) >= 5 and user["u_role"] != "admin":
         return {"status": 400,
                 "message": "You can't upload more than 5 images, please delete one of your images and try again"}
     #####################
@@ -166,7 +166,7 @@ async def delete_image(id: str, token: str):
 
     # It's checking if the user has access to the image.
     if not conn.execute(
-            images.select().where(images.c.i_id == id).where(images.c.i_fk_user_id == user["u_id"])).first():
+            images.select().where(images.c.i_id == id).where(images.c.i_fk_user_id == user["u_id"])).first() and user["u_role"] != "admin":
         return {"status": 400, "message": "You don't have access to this image"}
     #####################
     # End of conditions #
@@ -220,7 +220,7 @@ async def add_filter_image(id: str, token: str, filter: Filters):
 
     # It's checking if the user has access to the image.
     if not conn.execute(
-            images.select().where(images.c.i_id == id).where(images.c.i_fk_user_id == user["u_id"])).first():
+            images.select().where(images.c.i_id == id).where(images.c.i_fk_user_id == user["u_id"])).first() and user["u_role"] != "admin":
         return {"status": 400, "message": "You don't have access to this image"}
 
     # It's checking if the filter is valid.
@@ -236,6 +236,7 @@ async def add_filter_image(id: str, token: str, filter: Filters):
     nparr = np.frombuffer(image, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
+    # It's applying the filter to the image.
     if filter == Filters.grayscale:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     elif filter == Filters.invert:

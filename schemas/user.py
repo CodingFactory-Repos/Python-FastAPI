@@ -7,3 +7,4 @@ class User(BaseModel):
     u_password: str
     u_email: str
     u_api_key: str
+    u_role: str
